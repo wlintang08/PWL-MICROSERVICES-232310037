@@ -1,5 +1,6 @@
 const db = require("../models");
 const Book = db.Book;
+const rabbitmq = require("../config/rabbitmq");
 
 // GET ALL
 exports.getAllBooks = async (req, res) => {
@@ -18,10 +19,29 @@ exports.getBookById = async (req, res) => {
   res.json({ success: true, data: book });
 };
 
-// CREATE
+// CREATE (🔥 SUDAH TERINTEGRASI RABBITMQ)
 exports.createBook = async (req, res) => {
-  const book = await Book.create(req.body);
-  res.status(201).json(book);
+  try {
+    const book = await Book.create(req.body);
+
+    // kirim event ke RabbitMQ
+    await rabbitmq.sendToQueue("book_created", {
+      event: "book.created",
+      data: {
+        id: book.id,
+        title: book.title,
+        author: book.author,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Book created",
+      data: book,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 // UPDATE
